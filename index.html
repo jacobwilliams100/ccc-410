@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DRONENEX.US test run</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <style>
+        /* Set the size of the map */
+        #map {
+            height: 100vh; /* Full height */
+            width: 100%;   /* Full width */
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+ 
+    <!-- Leaflet JS -->
+    <script src="leaflet/leaflet.js"></script>
+    <!-- leaflet-kml.js for KML file support -->
+    <script src="js/leaflet-kml.js"></script>
+ 
+    <script>
+        // Initialize the map and set its view to a default location
+        const map = L.map('map').setView([44.41151998481226, -73.24369835150107], 10); // Center on Shelburne Bay Park
+ 
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+ 
+        // Define the URL of your KML file (this should be relative if it’s on the server)
+        const kmlUrl = '20241030-Atom_V2-Drone.kml';
+ 
+        // Fetch the KML file and add it to the map
+        fetch(kmlUrl)
+            .then(response => response.text())
+            .then(kmlText => {
+                const parser = new DOMParser();
+                const kml = parser.parseFromString(kmlText, 'text/xml');
+                const kmlLayer = new L.KML(kml);
+                map.addLayer(kmlLayer);
+ 
+                // Adjust the map view to the bounds of the KML layer
+                const bounds = kmlLayer.getBounds();
+                if (bounds.isValid()) {
+                    map.fitBounds(bounds);
+                }
+            })
+            .catch(error => {
+                console.error('Error loading KML file:', error);
+            });
+    </script>
+</body>
+</html>
