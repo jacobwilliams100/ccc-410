@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML Viewer</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <style>
+        #map {
+            height: 100vh; /* Full height */
+            width: 100%;   /* Full width */
+        }
+    </style>
+</head>
+<body>
+    <!-- where the map will be displayed -->
+    <div id="map"></div>
+
+    /* load leaflet.js and leaflet-kml */
+    <script src="leaflet/leaflet.js"></script>
+    <script src="js/leaflet-kml.js"></script>
+    <script>
+        // Initialize the map
+        // [0,0] is the starting place, with a zoom lvl of 2
+        const map = L.map('map').setView([0, 0], 2); // Temporary default view
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Function to get KML file from URL parameter
+        function getKmlFile() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('kml');
+        }
+
+        //Get KML filename from URL
+        const kmlFile = getKmlFile();
+        
+        // Get if from server
+        if (kmlFile) {
+            fetch(kmlFile)
+                .then(response => response.text())
+                // KML->XML
+                .then(kmlText => {
+                    const parser = new DOMParser();
+                    const kml = parser.parseFromString(kmlText, 'text/xml');
+                    // Create new layer
+                    const kmlLayer = new L.KML(kml);
+                    map.addLayer(kmlLayer);
+
+                    // Adjust the map to fit the KML layer's bounds
+                    const bounds = kmlLayer.getBounds();
+                    if (bounds.isValid()) {
+                        map.fitBounds(bounds);
+                    }
+                })
+                // In case it doesn't load...
+                .catch(error => {
+                    console.error('Error loading KML file:', error);
+                });
+        } else {
+            alert('No KML file specified.');
+        }
+    </script>
+</body>
+</html>
