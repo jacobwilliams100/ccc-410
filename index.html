@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KML Viewer</title>
+    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <style>
+        /* Inline CSS for quick styling */
+        body {
+            background-color: tan;
+            color: black; /* Ensures good contrast */
+            font-family: Arial, sans-serif; /* Improves readability */
+            text-align: center; /* Centers the title */
+            padding: 20px;
+        }
+
+        h1 {
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        .kml-list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+            text-align: center;
+        }
+
+        .kml-list li {
+            margin: 10px 0;
+        }
+
+        .kml-list a {
+            display: block;
+            padding: 10px;
+            background-color: #8B4513; // SaddleBrown for a nice contrast
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: 0.3s;
+        }
+
+        .kml-list a:hover {
+            background-color: #A0522D; /* Darker tan */
+        }
+    </style>
+</head>
+<body>
+    <h1>Dronenex.us Alpha Test: Select a KML File to View:</h1>
+    <ul id="kml-list" class="kml-list">
+        <li>Loading...</li> /* in case it needs to load (I expect it to be instant) */
+    </ul>
+
+    <script>
+        // Fetch list of KML files
+        fetch('/list_kml') //Sends request to server for list of KML files
+            .then(response => response.json()) //Converts response to json
+            .then(files => {
+                const list = document.getElementById('kml-list');
+                list.innerHTML = ''; // Clear "Loading..."
+				
+				//Populates list with links to KML files
+                if (files.length === 0) {
+                    list.innerHTML = '<li>No KML files found.</li>';
+                } else {
+                    files.forEach(file => {
+                        const li = document.createElement('li');
+                        const a = document.createElement('a');
+						//creates a link which will pass the selected KML file via URL query to the map.html
+                        a.href = `map.html?kml=${file}`;
+                        a.textContent = file;
+                        li.appendChild(a);
+                        list.appendChild(li);
+                    });
+                }
+            })
+			// In case there is an error
+            .catch(error => {
+                console.error('Error fetching KML files:', error);
+                document.getElementById('kml-list').innerHTML = '<li>Error loading files.</li>';
+            });
+    </script>
+</body>
+</html>
