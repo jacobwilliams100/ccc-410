@@ -1,0 +1,1127 @@
+#:import DistGauge widgets.DistGauge
+#:import AltGauge widgets.AltGauge
+#:import HGauge widgets.HGauge
+#:import VGauge widgets.VGauge
+#:import HeadingGauge widgets.HeadingGauge
+
+<TopNavBar@MDTopAppBar>
+    type: "small"
+
+<ZoomButton@MDIconButton>
+    style: "filled"
+
+<PlaybackButton@MDIconButton>
+    style: "filled"
+
+<StatusButton@MDIconButton>
+    style: "outlined"
+    theme_icon_color: "Custom"
+    icon_color: [0.27450980392156865, 0.27450980392156865, 0.30980392156862746, 1.0]
+
+<StatLabel@MDLabel>
+    halign: "right"
+    valign: "top"
+    max_lines: 1
+    size_hint: (None, None)
+    bold: True
+
+<StatValue@MDLabel>
+    halign: "right"
+    valign: "top"
+    max_lines: 1
+    size_hint: (None, None)
+    bold: True
+
+<PrefLabel@MDLabel>
+    halign: "right"
+    valign: "bottom"
+    max_lines: 1
+    size_hint: (None, None)
+    height: dp(40)
+    width: dp(170)
+    text_size: self.size
+    padding: dp(4)
+
+<PrefSelect@MDDropDownItem>
+    halign: "left"
+    valign: "top"
+    text_size: self.size
+
+<PrefCheck@MDCheckbox>
+    halign: "left"
+    valign: "top"
+    text_size: self.size
+
+<PrefSlider@MDSlider>
+    halign: "left"
+    valign: "bottom"
+    width: dp(160)
+    text_size: self.size
+    track_active_width: dp(10)
+    track_inactive_width: dp(10)
+
+<PrefText@MDLabel>
+    halign: "left"
+    valign: "bottom"
+    max_lines: 1
+    size_hint: (None, None)
+    height: dp(40)
+    width: dp(160)
+    text_size: self.size
+    padding: dp(4)
+
+<PrefSliderHandle@MDSliderHandle>
+    size: [dp(14), dp(14)]
+    state_layer_color: "#008800"
+
+
+MDGridLayout:
+    cols: 1
+    id: theapp
+    show_nav_section: True
+    MDScreenManager:
+        id: screen_manager
+        BaseScreen:
+            name: "Screen_Loading"
+            on_enter: app.entered_screen_loading()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                md_bg_color: self.theme_cls.backgroundColor
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarTitle:
+                        text: f"{app.appName}"
+                        pos_hint: {"center_x": .5}
+                MDLabel:
+                    size_hint: (1, 1)
+                    pos_hint: {"center_x": .5, "center_y": .5}
+                    text: "Loading..."
+                    halign: "center"
+                    role: "large"
+                    max_lines: 1
+                    bold: True
+        BaseScreen:
+            name: "Screen_Log_Files"
+            on_enter: app.entered_screen_log()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                md_bg_color: self.theme_cls.backgroundColor
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "folder-download-outline"
+                            on_release: app.open_file_import_dialog()
+                        MDActionTopAppBarButton:
+                            icon: "database-export-outline"
+                            on_release: app.open_backup_dialog()
+                        MDActionTopAppBarButton:
+                            icon: "database-import-outline"
+                            on_release: app.open_restore_dialog()
+                        MDActionTopAppBarButton:
+                            icon: "help-circle-outline"
+                            on_release: app.show_help()                              
+                    MDTopAppBarTitle:
+                        text: f"{app.appName} - {_('title_logs')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "map-marker-path"
+                            on_release: root.ids.screen_manager.current = "Screen_Waypoints"
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "chart-line"
+                            on_release: root.ids.screen_manager.current = "Screen_Global_Stats"
+                        MDActionTopAppBarButton:
+                            icon: "wrench-cog-outline"
+                            on_release: root.ids.screen_manager.current = "Screen_Preferences"
+                MDGridLayout:
+                    rows: 1
+                    row_default_height: dp(18) if app.is_desktop else dp(14)
+                    size_hint: (None, None)
+                    width: dp(200)
+                    pos_hint: {"top": 1, "right": 1}
+                    adaptive_height: True
+                    MDLabel:
+                        text: "Model:"
+                        halign: "right"
+                        valign: "top"
+                        max_lines: 1
+                        size_hint: (None, 1)
+                        padding: [0, 0, dp(10), dp(4)] if app.is_desktop else [0, 0, dp(10), dp(7)]
+                        height: dp(18) if app.is_desktop else dp(10)
+                        width: dp(100) if app.is_desktop else dp(85)
+                        role: "large" if app.is_desktop else "small"
+                        bold: True
+                    MDDropDownItem:
+                        id: model_selector
+                        on_release: app.model_selection(*args)
+                        MDDropDownItemText:
+                            font_style: "Title"
+                            id: selected_model
+                            text: "--"
+                            role: "medium" if app.is_desktop else "small"
+                            bold: True
+                MDScrollView:
+                    scroll_type: ["bars", "content"]
+                    bar_width: dp(15)
+                    MDGridLayout:
+                        cols: 9
+                        id: log_files
+                        md_bg_color: self.theme_cls.backgroundColor
+                        row_default_height: dp(22) if app.is_desktop else dp(14)
+                        size_hint: (1, None)
+                        height: self.minimum_height
+                        padding: [0, 0, dp(15), 0]
+        BaseScreen:
+            name: "Screen_Global_Stats"
+            on_enter: app.entered_screen_gstats()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                md_bg_color: self.theme_cls.backgroundColor
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "close"
+                            on_release: app.close_gstats_screen()
+                    MDTopAppBarTitle:
+                        text: f"{app.appName} - {_('title_gstats')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                MDScrollView:
+                    scroll_type: ["bars", "content"]
+                    bar_width: dp(15)
+                    MDGridLayout:
+                        cols: 1
+                        id: gstat_graphs
+                        md_bg_color: self.theme_cls.backgroundColor
+                        row_default_height: dp(300)
+                        height: self.minimum_height
+                        size_hint: (None, None)
+                        padding: [0, 0, dp(15), 0]
+        BaseScreen:
+            name: "Screen_Map"
+            on_enter: app.entered_screen_map()
+            on_leave: app.left_screen_map()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "close"
+                            on_release: app.close_map_screen()
+                    MDTopAppBarTitle:
+                        id: map_title
+                        text: f"{app.appName} - {_('title_map')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "speedometer"
+                            on_release: theapp.show_nav_section = not theapp.show_nav_section
+                        MDActionTopAppBarButton:
+                            icon: "table"
+                            on_release: root.ids.screen_manager.current = "Screen_Day_Summary"
+                        MDActionTopAppBarButton:
+                            icon: "wrench-cog-outline"
+                            on_release: root.ids.screen_manager.current = "Screen_Preferences"
+                MDGridLayout:
+                    cols: 2
+                    md_bg_color: self.theme_cls.backgroundColor
+                    MDRelativeLayout:
+                        width: (dp(225) if app.is_desktop else dp(175)) if theapp.show_nav_section else 0
+                        opacity: 1 if theapp.show_nav_section else 0
+                        size_hint: (None, 1)
+                        MDGridLayout:
+                            cols: 2
+                            size_hint: (1, None)
+                            pos_hint: {"top": 1, "right": 1}
+                            md_bg_color: self.theme_cls.backgroundColor
+                            StatLabel:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_time')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_elapsed
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_distance')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_dist
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_altitude')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_alt
+                                text: ""
+                                size_hint: (None, None)
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text:  _('map_horizontal_speed')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_hspeed
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_vertical_speed')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_vspeed
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_distance_flown')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_traveled
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "medium" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_traveled_short
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "medium" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_flightmode') # Speed
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_flightmode
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_battery_level')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_batterylevel1
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "medium" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_batterylevel2
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "medium" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_rth_desc') # RTH STATUS
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value1_rth_desc
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            MDDivider:
+                            MDDivider:
+                            StatLabel:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_date')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_date
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_maximum_distance')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_maxdist
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "medium" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_maxdist_short
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "medium" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_maximum_altitude')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_maxalt
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_maximum_horizontal_speed')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_maxhspeed
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_total_distance')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_tottraveled
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "medium" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_tottraveled_short
+                                text: ""
+                                height: dp(18) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "medium" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_duration')
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                id: value_duration
+                                text: ""
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            MDDivider:
+                            MDDivider:
+                            StatLabel:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            StatValue:
+                                text: ""
+                                height: dp(10) if app.is_desktop else dp(5)
+                                width: dp(90) if app.is_desktop else dp(70)
+                                role: "large" if app.is_desktop else "small"
+                            StatLabel:
+                                text: _('map_flight_number')
+                                valign: "top"
+                                padding: [0, 0, 0, dp(8)] if app.is_desktop else [0, 0, 0, dp(20)]
+                                height: dp(22) if app.is_desktop else dp(12)
+                                width: dp(105) if app.is_desktop else dp(80)
+                                role: "large" if app.is_desktop else "small"
+                            MDDropDownItem:
+                                on_release: app.open_flight_selection(*args)
+                                MDDropDownItemText:
+                                    font_style: "Title"
+                                    id: selected_path
+                                    text: "--"
+                                    role: "medium" if app.is_desktop else "small"
+                                    bold: True
+                    MDRelativeLayout:
+                        size_hint: (1 - ((dp(225) if app.is_desktop else dp(175)) if theapp.show_nav_section else 0), 1)
+                        MapView:
+                            id: map
+                            size_hint: (1, 1)
+                            pos_hint: {"x": 0, "y": 0}
+                            zoom: 3
+                            lat: 51.50722
+                            lon: -0.1275
+                        MDGridLayout:
+                            size_hint: (None, None)
+                            pos_hint: {"center_x": .5}
+                            y: dp(10)
+                            rows: 1
+                            adaptive_size: True
+                            PlaybackButton:
+                                icon: "skip-previous"
+                                on_release: app.jump_prev_flight()
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            MDLabel:
+                                size_hint: (None, None)
+                                width: dp(20) if app.is_desktop else dp(10)
+                                text: ""
+                            PlaybackButton:
+                                id: playbutton
+                                icon: "play"
+                                on_release: app.play_flight()
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            MDLabel:
+                                size_hint: (None, None)
+                                width: dp(20) if app.is_desktop else dp(10)
+                                text: ""
+                            PlaybackButton:
+                                icon: "skip-next"
+                                on_release: app.jump_next_flight()
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            MDLabel:
+                                size_hint: (None, None)
+                                width: dp(20) if app.is_desktop else dp(10)
+                                text: ""
+                            PlaybackButton:
+                                id: speed_indicator
+                                on_release: app.change_playback_speed()
+                                icon: "numeric-0-box"
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                                theme_bg_color: "Custom"
+                                md_bg_color: "green"
+                            MDLabel:
+                                size_hint: (None, None)
+                                width: dp(20) if app.is_desktop else dp(10)
+                                text: ""
+                            PlaybackButton:
+                                icon: "crosshairs-gps"
+                                on_release: app.center_map()
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                        MDBoxLayout:
+                            size_hint: (None, None)
+                            pos_hint: {"right": 1, "top": 1}
+                            size: self.minimum_size
+                            cols: 1
+                            padding: [0,dp(40),0,0]
+                            spacing: 0
+                            orientation: 'vertical'
+                            opacity: 1 if selected_gauges.active else 0
+                            DistGauge:
+                                id: DSgauge
+                                display_unit: ""
+                                value: 1
+                                md_bg_color: "black"
+                                size_hint: (None, None)
+                                size: ((root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150), (root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150))
+                            AltGauge:
+                                id: ALgauge
+                                display_unit: ""
+                                value: 1
+                                md_bg_color: "black"
+                                size_hint: (None, None)
+                                size: ((root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150), (root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150))
+                            HGauge:
+                                id: HSPDgauge
+                                display_unit: ""
+                                value: 1
+                                md_bg_color: "black"
+                                size_hint: (None, None)
+                                size: ((root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150), (root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150))
+                            VGauge:
+                                id: VSPDgauge
+                                display_unit: ""
+                                value: 1
+                                md_bg_color: "black"
+                                size_hint: (None, None)
+                                size: ((root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150), (root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150))
+                            HeadingGauge:
+                                id: HDgauge
+                                value: 0
+                                drotation: 0 # Provision to rotate the drone image in the gauge itself
+                                md_bg_color: "black"
+                                size_hint: (None, None)
+                                size: ((root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150), (root.height-dp(90)) / 5 if (root.height-dp(90))/5 < dp(150) else dp(150))
+                        MDSlider:
+                            id: flight_progress
+                            size_hint: (None, None)
+                            x: dp(1)
+                            y: dp(55) if app.is_desktop else dp(45)
+                            width: self.parent.width - (HDgauge.width + dp(2) if selected_gauges.active else dp(2))
+                            is_updating: True
+                            opacity: 0 if selected_path.text == "--" else 1
+                            on_value: app.select_flight_progress(*args)
+                            track_active_color: "#444444"
+                            track_inactive_color: "#aaaaaa"
+                            min: 0.
+                            max: 100.
+                            step: 0
+                            value: 0.
+                            MDSliderHandle:
+                        MDGridLayout:
+                            id: mapnav
+                            pos_hint: {"x": 0.01, "top": 0.99} if app.is_desktop else {"x": 1, "top": 0}
+                            padding: [ 0, dp(40), 0, 0 ]
+                            rows: 2
+                            adaptive_size: True
+                            ZoomButton:
+                                icon: "plus"
+                                on_release: app.map_zoom(True)
+                            ZoomButton:
+                                icon: "minus"
+                                on_release: app.map_zoom(False)
+                        #MDGridLayout:
+                        #    id: mapnav
+                        #    size_hint: (None, None)
+                        #    width: dp(120)
+                        #    height: dp(50)
+                        #    pos_hint: {"x": 0.01} if app.is_desktop else {"x": 1}
+                        #    y: dp(100) if app.is_desktop else dp(90)
+                        #    rows: 1
+                        #    md_bg_color: self.theme_cls.backgroundColor
+                        #    Image:
+                        #        id: map_img_roll
+                        #        source: "assets/roll.png"
+                        #        fit_mode: "contain"
+                        #    MDLabel:
+                        #        text: "  "
+                        #    Image:
+                        #        id: map_img_wind
+                        #        source: "assets/wind.png"
+                        #        fit_mode: "contain"
+                        MDGridLayout:
+                            pos_hint: {"right": 1, "top": 1}
+                            size_hint: (None, None)
+                            width: dp(140) if not app.is_desktop and theapp.show_nav_section else self.parent.width
+                            height: dp(32)
+                            adaptive_height: True
+                            rows: 1
+                            md_bg_color: self.theme_cls.backgroundColor
+                            MDLabel:
+                                id: map_metrics_ribbon
+                                text: ""
+                                role: "large" if app.is_desktop else "small"
+                                bold: True
+                                opacity: 0 if not app.is_desktop and theapp.show_nav_section else 1
+                            MDIconButton: # Padding
+                                style: "standard"
+                                size: [dp(10), dp(10)]
+                            StatusButton:
+                                id: battery_level
+                                icon: "battery"
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            StatusButton:
+                                id: flight_mode
+                                icon: "wifi"
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            StatusButton:
+                                id: drone_connection
+                                icon: "signal-off"
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            StatusButton:
+                                id: drone_action
+                                icon: "airplane"
+                                size: [dp(40), dp(40)] if app.is_desktop else [dp(30), dp(30)]
+                            MDIconButton: # Padding
+                                style: "standard"
+                                size: [dp(10), dp(10)]
+        BaseScreen:
+            name: "Screen_Day_Summary"
+            on_enter: app.entered_screen_summary()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                md_bg_color: self.theme_cls.backgroundColor
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "close"
+                            on_release: root.ids.screen_manager.current = "Screen_Map"
+                    MDTopAppBarTitle:
+                        id: flights_title
+                        text: f"{app.appName} - {_('title_flights')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "microsoft-excel"
+                            on_release: app.open_csv_file_export_dialog()
+                        MDActionTopAppBarButton:
+                            icon: "google-earth"
+                            on_release: app.open_kml_file_export_dialog()
+                        MDActionTopAppBarButton:
+                            icon: "wrench-cog-outline"
+                            on_release: root.ids.screen_manager.current = "Screen_Preferences"
+                MDScrollView:
+                    scroll_type: ["bars", "content"]
+                    bar_width: dp(15)
+                    MDGridLayout:
+                        cols: 7
+                        id: flight_stats_grid
+                        md_bg_color: self.theme_cls.backgroundColor
+                        row_default_height: dp(30)
+                        adaptive_height: True
+                        padding: [0, 0, dp(15), 0]
+        BaseScreen:
+            name: "Screen_Waypoints"
+            on_enter: app.entered_screen_waypoints()
+            on_leave: app.left_screen_waypoints()
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "close"
+                            on_release: app.close_waypoints_screen()
+                    MDTopAppBarTitle:
+                        text: f"{app.appName} - {_('title_waypoints')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "wrench-cog-outline"
+                            on_release: root.ids.screen_manager.current = "Screen_Preferences"
+                MDGridLayout:
+                    cols: 2
+                    md_bg_color: self.theme_cls.backgroundColor
+                    MDRelativeLayout:
+                        width: dp(370)
+                        size_hint: (None, 1)
+                        MDGridLayout:
+                            cols: 1
+                            size_hint: (1, None)
+                            pos_hint: {"top": 1, "right": 1}
+                            md_bg_color: self.theme_cls.backgroundColor
+                            adaptive_height: True
+                            padding: dp(4)
+                            MDLabel:
+                                text: ""
+                                height: dp(20)
+                                size_hint: (1, None)
+                                role: "large"
+                            MDLabel:
+                                text: "** This feature requires elevated Android permissions."
+                                size_hint: (1-dp(4), None)
+                                padding: dp(2)
+                                role: "small"
+                                bold: True
+                            MDTextField:
+                                id: adb_path
+                                mode: "filled"
+                                MDTextFieldHintText:
+                                    text: "adb path"
+                            MDLabel:
+                                text: ""
+                                height: dp(10)
+                                size_hint: (1, None)
+                                role: "large"
+                            MDGridLayout:
+                                cols: 3
+                                size_hint: (1, None)
+                                adaptive_height: True
+                                MDFabButton:
+                                    style: "standard"
+                                    icon: "phone-outgoing"
+                                    id: btn_retrieve_waypoints
+                                    on_release: app.get_waypoints(*args)
+                                MDLabel:
+                                    text: ""
+                                    height: dp(10)
+                                    size_hint: (1, None)
+                                    role: "large"
+                                MDFabButton:
+                                    style: "standard"
+                                    icon: "phone-incoming"
+                                    id: btn_save_waypoints
+                                    disabled: True
+                                    on_release: app.save_waypoints(*args)
+                            MDLabel:
+                                text: ""
+                                height: dp(20)
+                                size_hint: (1, None)
+                                role: "large"
+                            MDGridLayout:
+                                cols: 2
+                                size_hint: (1, None)
+                                adaptive_height: True
+                                MDLabel:
+                                    text: "Path:"
+                                    role: "medium"
+                                    bold: True
+                                MDDropDownItem:
+                                    on_release: app.waypoint_selection(*args)
+                                    MDDropDownItemText:
+                                        font_style: "Title"
+                                        id: selected_waypoint
+                                        disabled: True
+                                        text: "--"
+                                        role: "medium"
+                                        bold: True
+                            MDLabel:
+                                text: ""
+                                height: dp(20)
+                                size_hint: (1, None)
+                                role: "large"
+                            MDGridLayout:
+                                cols: 3
+                                size_hint: (1, None)
+                                adaptive_height: True
+                                MDButton:
+                                    style: "filled"
+                                    id: add_waypoint_marker
+                                    on_release: app.add_waypoint_marker(*args)
+                                    disabled: True
+                                    MDButtonText:
+                                        text: "Add Marker"
+                                MDButton:
+                                    style: "filled"
+                                    id: add_waypoint_path
+                                    on_release: app.add_waypoints(*args)
+                                    disabled: True
+                                    MDButtonText:
+                                        text: "Add Path"
+                                MDButton:
+                                    style: "filled"
+                                    id: delete_waypoint_path
+                                    on_release: app.delete_waypoints(*args)
+                                    disabled: True
+                                    MDButtonText:
+                                        text: "Delete Path"
+                            MDLabel:
+                                text: ""
+                                height: dp(20)
+                                size_hint: (1, None)
+                                role: "large"
+                            TextInput:
+                                id: adb_output
+                                multiline: True
+                                size_hint: (1, None)
+                                height: dp(200)
+                    MDRelativeLayout:
+                        size_hint: (1 - dp(370), 1)
+                        MapView:
+                            id: waymap
+                            size_hint: (1, 1)
+                            pos_hint: {"x": 0, "y": 0}
+                            zoom: 3
+                            lat: 51.50722
+                            lon: -0.1275
+                            on_touch_down: app.waymap_touch(*args)
+                        MDGridLayout:
+                            id: waymapnav
+                            pos_hint: {"x": 0.01, "top": 0.99}
+                            padding: [ 0, dp(40), 0, 0 ]
+                            rows: 2
+                            adaptive_size: True
+                            ZoomButton:
+                                icon: "plus"
+                                on_release: app.waymap_zoom(True)
+                            ZoomButton:
+                                icon: "minus"
+                                on_release: app.waymap_zoom(False)
+        BaseScreen:
+            name: "Screen_Preferences"
+            MDGridLayout:
+                cols: 1
+                size_hint: (1, 1)
+                md_bg_color: self.theme_cls.backgroundColor
+                TopNavBar:
+                    size_hint_x: 1
+                    height: dp(40)
+                    MDTopAppBarLeadingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "close"
+                            on_release: app.close_pref_screen()
+                    MDTopAppBarTitle:
+                        text: f"{app.appName} - {_('title_preferences')}"
+                        pos_hint: {"center_x": .5}
+                    MDTopAppBarTrailingButtonContainer:
+                        MDActionTopAppBarButton:
+                            icon: "fullscreen"
+                            on_release: app.swap_fullscreen_mode()
+                            opacity: 1 if app.is_desktop else 0
+                            disabled: False if app.is_desktop else True
+                        MDActionTopAppBarButton:
+                            icon: "delete"
+                            on_release: app.clear_cache()
+                MDGridLayout:
+                    cols: 4
+                    md_bg_color: self.theme_cls.backgroundColor
+                    row_default_height: dp(30)
+                    adaptive_height: True
+                    # Row 1
+                    PrefLabel:
+                        text: _('preference_unit_of_measure')
+                    PrefSelect:
+                        on_release: app.uom_selection(*args)
+                        MDDropDownItemText:
+                            font_style: "Title"
+                            role: "medium"
+                            id: selected_uom
+                            text: ""
+                    PrefLabel:
+                        text: _('preference_home_marker')
+                    PrefCheck:
+                        on_release: app.home_marker_selection(*args)
+                        id: selected_home_marker
+                        active: True
+                        height: dp(34)
+                    # Row 2
+                    PrefLabel:
+                        text: _('preference_playback_rate')
+                    PrefSelect:
+                        on_release: app.refresh_rate_selection(*args)
+                        MDDropDownItemText:
+                            font_style: "Title"
+                            role: "medium"
+                            id: selected_refresh_rate
+                            text: ""
+                    PrefLabel:
+                        text: _('preference_controller_marker')
+                    PrefCheck:
+                        on_release: app.ctrl_marker_selection(*args)
+                        id: selected_ctrl_marker
+                        active: True
+                        height: dp(34)
+                    # Row 3
+                    PrefLabel:
+                        text: _('preference_map_tile_server')
+                    PrefSelect:
+                        on_release: app.open_mapsource_selection(*args)
+                        MDDropDownItemText:
+                            font_style: "Title"
+                            role: "medium"
+                            id: selected_mapsource
+                            text: ""
+                    PrefLabel:
+                        text: _('preference_rounded_values')
+                    PrefCheck:
+                        on_release: app.rounding_selection(*args)
+                        id: selected_rounding
+                        active: True
+                        height: dp(34)
+                    # Row 4
+                    PrefLabel:
+                        text: _('preference_language')
+                    PrefSelect:
+                        on_release: app.language_selection(*args)
+                        MDDropDownItemText:
+                            font_style: "Title"
+                            role: "medium"
+                            id: selected_language
+                            text: ""
+                    PrefLabel:
+                        text: _('preference_gauges')
+                    PrefCheck:
+                        on_release: app.gauges_selection(*args)
+                        id: selected_gauges
+                        active: True
+                        height: dp(34)
+                    # Row 5
+                    PrefLabel:
+                        text: _('preference_flight_path_width')
+                    PrefSlider:
+                        id: selected_flight_path_width
+                        on_value_pos: app.flight_path_width_selection(*args)
+                        min: 0
+                        max: len(app.pathWidths)-1
+                        step: 1
+                        value: 0
+                        height: dp(40)
+                        padding: 4
+                        pos_hint: {None, None}
+                        size_hint: (None, None)
+                        width: dp(160)
+                        PrefSliderHandle:
+                    PrefLabel:
+                        text: ""
+                    PrefLabel:
+                        text: ""
+                    # Row 6
+                    PrefLabel:
+                        text: _('preference_flight_path_color')
+                    PrefSlider:
+                        id: selected_flight_path_color
+                        on_value_pos: app.flight_path_color_selection(*args)
+                        min: 0
+                        max: len(app.assetColors)-1
+                        step: 1
+                        value: 0
+                        height: dp(40)
+                        padding: 4
+                        pos_hint: {None, None}
+                        size_hint: (None, None)
+                        width: dp(160)
+                        PrefSliderHandle:
+                    PrefLabel:
+                        text: _('preference_controller_color')
+                    PrefSlider:
+                        id: selected_marker_ctrl_color
+                        on_value_pos: app.marker_ctrl_color_selection(*args)
+                        min: 0
+                        max: len(app.assetColors)-1
+                        step: 1
+                        value: 0
+                        height: dp(40)
+                        padding: 4
+                        pos_hint: {None, None}
+                        size_hint: (None, None)
+                        width: dp(160)
+                        PrefSliderHandle:
+                    # Row 7
+                    PrefLabel:
+                        text: _('preference_drone_color')
+                    PrefSlider:
+                        id: selected_marker_drone_color
+                        on_value_pos: app.marker_drone_color_selection(*args)
+                        min: 0
+                        max: len(app.assetColors)-1
+                        step: 1
+                        value: 0
+                        height: dp(40)
+                        padding: 4
+                        pos_hint: {None, None}
+                        size_hint: (None, None)
+                        width: dp(160)
+                        PrefSliderHandle:
+                    PrefLabel:
+                        text: _('preference_home_color')
+                    PrefSlider:
+                        id: selected_marker_home_color
+                        on_value_pos: app.marker_home_color_selection(*args)
+                        min: 0
+                        max: len(app.assetColors)-1
+                        step: 1
+                        value: 0
+                        height: dp(40)
+                        padding: 4
+                        pos_hint: {None, None}
+                        size_hint: (None, None)
+                        width: dp(160)
+                        PrefSliderHandle:
+                    # Row 8
+                    PrefLabel:
+                        text: _('preference_app_version')
+                    PrefText:
+                        text: f"{app.appVersion}"
+                    PrefLabel:
+                        text: _('preference_splash')
+                        opacity: 1 if app.is_desktop else 0
+                    PrefCheck:
+                        on_release: app.splash_selection(*args)
+                        id: selected_splashscreen
+                        active: True
+                        height: dp(34)
+                        disabled: False if app.is_desktop else True
+                        opacity: 1 if app.is_desktop else 0
