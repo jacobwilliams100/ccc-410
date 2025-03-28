@@ -6,63 +6,533 @@
     <title>KML Viewer</title>
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
+        body {
+            margin: 0;
+            padding: 0;
+        }
         #map {
-            height: 100vh; /* Full height */
-            width: 100%;   /* Full width */
+            height: 100vh;
+            width: 100%;
+        }
+        .back-button {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1000;
+            background-color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #333;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            font-family: Arial, sans-serif;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            background: rgba(255,255,255,0.8);
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+        }
+        #info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background-color: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+            font-family: Arial, sans-serif;
+            max-width: 250px;
         }
     </style>
 </head>
 <body>
-    <!-- where the map will be displayed -->
+    <!-- Back button -->
+    <a href="index.html" class="back-button">Back to Files</a>
+    
+    <!-- Flight Info Panel -->
+    <div id="info-panel">
+        <h3 style="margin-top: 0; margin-bottom: 8px;">Flight Information</h3>
+        <div id="flight-info">Loading...</div>
+    </div>
+    
+    <!-- Loading indicator -->
+    <div id="loading" class="loading">Loading flight data...</div>
+    
+    <!-- Map container -->
     <div id="map"></div>
-
-    /* load leaflet.js and leaflet-kml */
+    
     <script src="leaflet/leaflet.js"></script>
-    <script src="js/leaflet-kml.js"></script>
     <script>
-        // Initialize the map
-        // [0,0] is the starting place, with a zoom lvl of 2
-        const map = L.map('map').setView([0, 0], 2); // Temporary default view
-
+        // Initialize map
+        const map = L.map('map').setView([0, 0], 2);
+        
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
-
-        // Function to get KML file from URL parameter
+        
+        // Define custom icons
+        const droneIcon = L.icon({
+            iconUrl: 'icons/drone-icon.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        
+        const controllerIcon = L.icon({
+            iconUrl: 'icons/controller-icon.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        
+        // Use drone icon for takeoff and home icon for landing
+        const takeoffIcon = L.icon({
+            iconUrl: 'icons/drone-icon.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        
+        const landingIcon = L.icon({
+            iconUrl: 'icons/home-icon.png',
+            iconSize: [24, 24],
+            iconAnchor: [12, 12]
+        });
+        
+        // Calculate distance between two points (haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth's radius in meters
+            const φ1 = lat1 * Math.PI/180;
+            const φ2 = lat2 * Math.PI/180;
+            const Δφ = (lat2-lat1) * Math.PI/180;
+            const Δλ = (lon2-lon1) * Math.PI/180;
+            
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                    Math.cos(φ1) * Math.cos(φ2) *
+                    Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            
+            return R * c; // in meters
+        }
+        
+        // Add flight information to panel
+        function updateInfoPanel(dronePositions, flightDistance, folderDescription) {
+            if (dronePositions.length === 0) {
+                document.getElementById('flight-info').innerHTML = 'No flight data available';
+                return;
+            }
+            
+            console.log(`Number of drone positions: ${dronePositions.length}`);
+            console.log("Raw folder description for processing:", folderDescription);
+            
+            // Calculate flight duration
+            const startTime = dronePositions[0].timestamp;
+            const endTime = dronePositions[dronePositions.length - 1].timestamp;
+            let duration = 'Unknown';
+            
+            console.log(`Raw timestamps: ${startTime} and ${endTime}`);
+            
+            if (startTime && endTime) {
+                // Try with explicit timezone handling
+                const startDate = new Date(startTime);
+                const endDate = new Date(endTime);
+                
+                console.log(`Start date: ${startDate.toISOString()}`);
+                console.log(`End date: ${endDate.toISOString()}`);
+                
+                // Calculate duration with more robust checks
+                const durationMs = endDate.getTime() - startDate.getTime();
+                console.log(`Duration calculation: ${durationMs}ms`);
+                
+                if (durationMs > 0) {
+                    const minutes = Math.floor(durationMs / 60000);
+                    const seconds = Math.floor((durationMs % 60000) / 1000);
+                    duration = `${minutes}m ${seconds}s`;
+                } else {
+                    console.warn("Invalid duration calculation - timestamps may be incorrect or in wrong format");
+                    // Use distance-based estimation as fallback
+                    if (flightDistance > 0) {
+                        const estimatedDurationSeconds = Math.round(flightDistance / 5);
+                        const minutes = Math.floor(estimatedDurationSeconds / 60);
+                        const seconds = estimatedDurationSeconds % 60;
+                        duration = `${minutes}m ${seconds}s (est)`;
+                    }
+                }
+            } else if (flightDistance > 0) {
+                // No timestamps at all, still estimate based on distance
+                const estimatedDurationSeconds = Math.round(flightDistance / 5);
+                const minutes = Math.floor(estimatedDurationSeconds / 60);
+                const seconds = estimatedDurationSeconds % 60;
+                duration = `${minutes}m ${seconds}s (est)`;
+            }
+            
+            // Format the start time
+            let timeFormatted = 'Unknown';
+            let dateFormatted = 'Unknown';
+            if (startTime) {
+                const date = new Date(startTime);
+                timeFormatted = date.toLocaleTimeString();
+                dateFormatted = date.toLocaleDateString();
+            }
+            
+            // Format distance in feet (instead of meters)
+            let distanceText = 'Unknown';
+            if (flightDistance) {
+                // Convert meters to feet (1 meter = 3.28084 feet)
+                const distanceInFeet = flightDistance * 3.28084;
+                
+                if (distanceInFeet >= 5280) {
+                    // If more than a mile, show in miles
+                    distanceText = `${(distanceInFeet/5280).toFixed(2)} mi`;
+                } else {
+                    // Otherwise show in feet
+                    distanceText = `${Math.round(distanceInFeet)} ft`;
+                }
+            }
+            
+            // Extract max altitude and max speed from folder description
+            let maxAltitude = 'Unknown';
+            let maxSpeed = 'Unknown';
+            
+            if (folderDescription) {
+                console.log("Raw description text:", folderDescription);
+                
+                // First try basic regex on the raw description
+                const altMatch = folderDescription.match(/Max altitude: ([0-9.]+) (\w+)/i);
+                if (altMatch && altMatch.length >= 3) {
+                    maxAltitude = `${altMatch[1]} ${altMatch[2]}`;
+                    console.log("Extracted max altitude:", maxAltitude);
+                } else {
+                    // Try splitting by <br> tags which might be in the description
+                    const lines = folderDescription.split(/<br\s*\/?>/i);
+                    console.log("Split description lines:", lines);
+                    
+                    // Look for altitude in each line
+                    for (const line of lines) {
+                        const lineAltMatch = line.match(/Max altitude: ([0-9.]+) (\w+)/i);
+                        if (lineAltMatch && lineAltMatch.length >= 3) {
+                            maxAltitude = `${lineAltMatch[1]} ${lineAltMatch[2]}`;
+                            console.log("Extracted max altitude from line:", maxAltitude);
+                            break;
+                        }
+                    }
+                }
+                
+                // Do the same for speed
+                const speedMatch = folderDescription.match(/Max speed: ([0-9.]+) (\w+)/i);
+                if (speedMatch && speedMatch.length >= 3) {
+                    maxSpeed = `${speedMatch[1]} ${speedMatch[2]}`;
+                    console.log("Extracted max speed:", maxSpeed);
+                } else {
+                    // Try splitting by <br> tags
+                    const lines = folderDescription.split(/<br\s*\/?>/i);
+                    
+                    // Look for speed in each line
+                    for (const line of lines) {
+                        const lineSpeedMatch = line.match(/Max speed: ([0-9.]+) (\w+)/i);
+                        if (lineSpeedMatch && lineSpeedMatch.length >= 3) {
+                            maxSpeed = `${lineSpeedMatch[1]} ${lineSpeedMatch[2]}`;
+                            console.log("Extracted max speed from line:", maxSpeed);
+                            break;
+                        }
+                    }
+                }
+                
+                // If still not found, log failure
+                if (maxAltitude === 'Unknown') {
+                    console.warn("Failed to extract max altitude from description");
+                }
+                if (maxSpeed === 'Unknown') {
+                    console.warn("Failed to extract max speed from description");
+                }
+            }
+            
+            // Create the info HTML with time, duration, distance, max altitude and max speed
+            const infoHtml = `
+                <div style="font-size: 14px; line-height: 1.5;">
+                    <div><strong>Date:</strong> ${dateFormatted}</div>
+                    <div><strong>Time:</strong> ${timeFormatted}</div>
+                    <div><strong>Duration:</strong> ${duration}</div>
+                    <div><strong>Distance:</strong> ${distanceText}</div>
+                    <div><strong>Max Altitude:</strong> ${maxAltitude}</div>
+                    <div><strong>Max Speed:</strong> ${maxSpeed}</div>
+                </div>
+            `;
+            
+            document.getElementById('flight-info').innerHTML = infoHtml;
+        }
+        
+        // Function to parse KML with custom icons
+        function parseKML(kmlText) {
+            const parser = new DOMParser();
+            const kml = parser.parseFromString(kmlText, 'text/xml');
+            
+            console.log("Parsing KML file...");
+            
+            // Check for TimeStamp elements
+            const allTimeStamps = kml.getElementsByTagName('TimeStamp');
+            console.log(`Found ${allTimeStamps.length} TimeStamp elements in KML`);
+            
+            // Log a few timestamps for debugging
+            for (let i = 0; i < Math.min(allTimeStamps.length, 5); i++) {
+                const when = allTimeStamps[i].getElementsByTagName('when')[0]?.textContent;
+                console.log(`TimeStamp ${i}: ${when}`);
+                if (when) {
+                    try {
+                        // Try to parse as date
+                        const parsedTime = new Date(when).getTime();
+                        console.log(`  Parsed as: ${parsedTime} (${new Date(parsedTime).toISOString()})`);
+                    } catch (e) {
+                        console.error(`  Error parsing: ${e.message}`);
+                    }
+                }
+            }
+            
+            // Extract folder description for stats
+            let folderDescription = '';
+            const folders = kml.getElementsByTagName('Folder');
+            if (folders.length > 0) {
+                console.log(`Found ${folders.length} folders in KML`);
+                const descElement = folders[0].getElementsByTagName('description')[0];
+                if (descElement) {
+                    // For debugging: Log the raw content
+                    console.log("Raw description element innerHTML:", descElement.innerHTML);
+                    console.log("Raw description element textContent:", descElement.textContent);
+                    
+                    // Try both innerHTML and textContent
+                    folderDescription = descElement.textContent || descElement.innerHTML;
+                    
+                    // Try to extract actual content from CDATA or comment
+                    if (folderDescription.includes('CDATA')) {
+                        // This handles CDATA in the format: <!--><![CDATA[actual content]]><!--
+                        const cdataMatch = folderDescription.match(/<!--\s*--><!\[CDATA\[(.*)\]\]><!--\s*-->/s);
+                        if (cdataMatch && cdataMatch[1]) {
+                            folderDescription = cdataMatch[1];
+                            console.log("Extracted from CDATA:", folderDescription);
+                        }
+                    }
+                    
+                    // Additional attempt to extract from comments if needed
+                    if (folderDescription.includes('<!--')) {
+                        // This handles the format: <!-- content -->
+                        const commentMatch = folderDescription.match(/<!--(.*?)-->/s);
+                        if (commentMatch && commentMatch[1]) {
+                            folderDescription = commentMatch[1].trim();
+                            console.log("Extracted from comment:", folderDescription);
+                        }
+                    }
+                    
+                    console.log("Final extracted folder description:", folderDescription);
+                } else {
+                    console.log("No description element found in the folder");
+                }
+            } else {
+                console.log("No folder elements found in KML");
+            }
+            
+            const placemarks = kml.getElementsByTagName('Placemark');
+            const bounds = L.latLngBounds();
+            
+            // Extract the drone positions for path analysis
+            let dronePositions = [];
+            let controllerPositions = [];
+            let homePositions = [];
+            let flightDistance = 0;
+            
+            // First pass - collect all positions
+            for (const placemark of placemarks) {
+                const point = placemark.getElementsByTagName('Point')[0];
+                if (point) {
+                    const styleUrl = placemark.getElementsByTagName('styleUrl')[0]?.textContent || '';
+                    const coords = point.getElementsByTagName('coordinates')[0].textContent.trim();
+                    const [lon, lat, alt] = coords.split(',').map(parseFloat);
+                    
+                    // Skip if coordinates are invalid
+                    if (isNaN(lat) || isNaN(lon)) continue;
+                    
+                    // Get timestamp if available
+                    const timeStamp = placemark.getElementsByTagName('TimeStamp')[0];
+                    let timestamp = null;
+                    if (timeStamp) {
+                        const when = timeStamp.getElementsByTagName('when')[0]?.textContent;
+                        if (when) {
+                            // Try to parse the timestamp correctly
+                            try {
+                                // Make sure we're parsing a string, not a Date object
+                                timestamp = new Date(when.toString()).getTime();
+                                // Only log for drone positions to keep console cleaner
+                                if (styleUrl.includes('droneStyle')) {
+                                    console.log(`Parsed timestamp: ${when} -> ${timestamp}`);
+                                }
+                            } catch (e) {
+                                console.error(`Error parsing timestamp ${when}:`, e);
+                            }
+                        }
+                    }
+                    
+                    // Sort positions by type
+                    if (styleUrl.includes('droneStyle')) {
+                        dronePositions.push({lat, lon, alt, timestamp});
+                    } else if (styleUrl.includes('ctrlStyle')) {
+                        controllerPositions.push({lat, lon, alt, timestamp});
+                    } else if (styleUrl.includes('homeStyle')) {
+                        homePositions.push({lat, lon, alt, timestamp});
+                    }
+                }
+            }
+            
+            console.log(`Found drone positions: ${dronePositions.length}`);
+            console.log(`Found controller positions: ${controllerPositions.length}`);
+            console.log(`Found home positions: ${homePositions.length}`);
+            
+            // Debug the timestamps more specifically
+            if (dronePositions.length >= 2) {
+                console.log("Timestamp debugging:");
+                
+                // Look at the first and last drone positions
+                const firstDrone = dronePositions[0];
+                const lastDrone = dronePositions[dronePositions.length - 1];
+                
+                console.log("First drone position timestamp:", firstDrone.timestamp);
+                console.log("Last drone position timestamp:", lastDrone.timestamp);
+                
+                if (firstDrone.timestamp && lastDrone.timestamp) {
+                    console.log(`Parsed timestamps: ${firstDrone.timestamp} to ${lastDrone.timestamp}`);
+                    console.log(`Difference: ${lastDrone.timestamp - firstDrone.timestamp}ms`);
+                    
+                    // Check if timestamps are numeric
+                    console.log(`First timestamp is number: ${typeof firstDrone.timestamp === 'number'}`);
+                    console.log(`Last timestamp is number: ${typeof lastDrone.timestamp === 'number'}`);
+                    
+                    // Try alternative parsing
+                    const firstDate = new Date(firstDrone.timestamp);
+                    const lastDate = new Date(lastDrone.timestamp);
+                    console.log(`First timestamp as date: ${firstDate.toISOString()}`);
+                    console.log(`Last timestamp as date: ${lastDate.toISOString()}`);
+                }
+            }
+            
+            // Sort positions by timestamp
+            dronePositions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            controllerPositions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            homePositions.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+            
+            // Handle flight path and calculate distance
+            for (const placemark of placemarks) {
+                const lineString = placemark.getElementsByTagName('LineString')[0];
+                if (lineString) {
+                    const coords = lineString.getElementsByTagName('coordinates')[0].textContent.trim();
+                    const points = coords.split('\n').map(coordPair => {
+                        const [lon, lat, alt] = coordPair.trim().split(',').map(parseFloat);
+                        return [lat, lon];
+                    }).filter(point => !isNaN(point[0]) && !isNaN(point[1]));
+                    
+                    console.log(`LineString has ${points.length} points`);
+                    
+                    // Calculate total distance
+                    if (points.length > 1) {
+                        for (let i = 1; i < points.length; i++) {
+                            const [lat1, lon1] = points[i-1];
+                            const [lat2, lon2] = points[i];
+                            flightDistance += calculateDistance(lat1, lon1, lat2, lon2);
+                        }
+                    }
+                    
+                    // Add flight path
+                    if (points.length > 0) {
+                        L.polyline(points, {color: 'red', weight: 3}).addTo(map);
+                        points.forEach(point => bounds.extend(point));
+                    }
+                }
+            }
+            
+            console.log(`Calculated flight distance: ${flightDistance} meters`);
+            
+            // Update the info panel with flight data
+            updateInfoPanel(dronePositions, flightDistance, folderDescription);
+            
+            // Add the important markers:
+            // 1. Controller position - first controller position
+            if (controllerPositions.length > 0) {
+                const controller = controllerPositions[0];
+                L.marker([controller.lat, controller.lon], {
+                    icon: controllerIcon
+                }).bindTooltip('Controller Position').addTo(map);
+                bounds.extend([controller.lat, controller.lon]);
+            }
+            
+            // 2. Takeoff position - first drone position
+            if (dronePositions.length > 0) {
+                const takeoff = dronePositions[0];
+                L.marker([takeoff.lat, takeoff.lon], {
+                    icon: takeoffIcon
+                }).bindTooltip('Takeoff').addTo(map);
+                bounds.extend([takeoff.lat, takeoff.lon]);
+            }
+            
+            // 3. Landing position - last drone position
+            if (dronePositions.length > 0) {
+                const landing = dronePositions[dronePositions.length - 1];
+                L.marker([landing.lat, landing.lon], {
+                    icon: landingIcon
+                }).bindTooltip('Landing').addTo(map);
+                bounds.extend([landing.lat, landing.lon]);
+            }
+            
+            return bounds;
+        }
+        
+        // Get KML filename from URL parameter
         function getKmlFile() {
             const urlParams = new URLSearchParams(window.location.search);
             return urlParams.get('kml');
         }
-
-        //Get KML filename from URL
+        
         const kmlFile = getKmlFile();
         
-        // Get if from server
         if (kmlFile) {
+            document.title = 'Viewing: ' + kmlFile;
+            
             fetch(kmlFile)
-                .then(response => response.text())
-                // KML->XML
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load KML file (${response.status})`);
+                    }
+                    return response.text();
+                })
                 .then(kmlText => {
-                    const parser = new DOMParser();
-                    const kml = parser.parseFromString(kmlText, 'text/xml');
-                    // Create new layer
-                    const kmlLayer = new L.KML(kml);
-                    map.addLayer(kmlLayer);
-
-                    // Adjust the map to fit the KML layer's bounds
-                    const bounds = kmlLayer.getBounds();
-                    if (bounds.isValid()) {
-                        map.fitBounds(bounds);
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    try {
+                        // Parse KML with custom icons
+                        const bounds = parseKML(kmlText);
+                        
+                        // Fit map to bounds
+                        if (bounds.isValid()) {
+                            map.fitBounds(bounds);
+                        } else {
+                            map.setView([39.8283, -98.5795], 4); // Center on US
+                        }
+                    } catch (error) {
+                        console.error('Error parsing KML:', error);
+                        alert('Error parsing KML file: ' + error.message);
                     }
                 })
-                // In case it doesn't load...
                 .catch(error => {
+                    document.getElementById('loading').style.display = 'none';
                     console.error('Error loading KML file:', error);
+                    alert('Failed to load the KML file: ' + error.message);
                 });
         } else {
+            document.getElementById('loading').style.display = 'none';
             alert('No KML file specified.');
+            window.location.href = 'index.html';
         }
     </script>
 </body>
