@@ -3,83 +3,356 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>KML Viewer</title>
-    <link rel="stylesheet" href="leaflet/leaflet.css" />
+    <title>Dronenex: Flight Log Archive</title>
+    <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=Orbitron:wght@400;500;700&display=swap" rel="stylesheet">
     <style>
-        /* Inline CSS for quick styling */
-        body {
-            background-color: tan;
-            color: black; /* Ensures good contrast */
-            font-family: Arial, sans-serif; /* Improves readability */
-            text-align: center; /* Centers the title */
-            padding: 20px;
+        :root {
+            --bg-color: #f0f4f8;
+            --primary-color: #0077b6;
+            --secondary-color: #00b4d8;
+            --text-color: #2c3e50;
+            --accent-color: #48cae4;
+            --panel-bg: #ffffff;
         }
 
-        h1 {
-            font-size: 2em;
-            margin-bottom: 20px;
-        }
-
-        .kml-list {
-            list-style-type: none;
-            padding: 0;
+        * {
             margin: 0;
-            text-align: center;
+            padding: 0;
+            box-sizing: border-box;
         }
 
-        .kml-list li {
-            margin: 10px 0;
+        body {
+            font-family: 'Electrolize', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            background-image: 
+                linear-gradient(
+                    rgba(0,119,182,0.05) 1px, 
+                    transparent 1px
+                ),
+                linear-gradient(
+                    90deg, 
+                    rgba(0,119,182,0.05) 1px, 
+                    transparent 1px
+                );
+            background-size: 20px 20px;
+            position: relative;
         }
 
-        .kml-list a {
-            display: block;
-            padding: 10px;
-            background-color: #8B4513; // SaddleBrown for a nice contrast
-            color: white;
+        /* Subtle Texture */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(
+                    0deg,
+                    transparent,
+                    rgba(0,0,0,0.02)
+                ),
+                linear-gradient(
+                    90deg,
+                    rgba(0,0,0,0.015) 1px,
+                    transparent 1px
+                );
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: var(--panel-bg);
+            color: var(--text-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--primary-color);
+            box-shadow: 0 2px 10px rgba(0,119,182,0.1);
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: var(--primary-color);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .header-logo img {
+            height: 50px;
+            margin-right: 15px;
+            border: 2px solid var(--secondary-color);
+            box-shadow: 0 0 10px rgba(0,180,216,0.2);
+            transform: perspective(200px) rotateX(10deg);
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 20px;
+        }
+
+        .header-nav a {
+            color: var(--text-color);
             text-decoration: none;
-            border-radius: 5px;
-            transition: 0.3s;
+            font-family: 'Electrolize', sans-serif;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            transition: color 0.3s ease;
         }
 
-        .kml-list a:hover {
-            background-color: #A0522D; /* Darker tan */
+        .header-nav a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background-color: var(--primary-color);
+            transition: width 0.3s ease;
+        }
+
+        .header-nav a:hover {
+            color: var(--primary-color);
+        }
+
+        .header-nav a:hover::after {
+            width: 100%;
+        }
+
+        /* Main Content */
+        .container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+        }
+
+        .page-title {
+            text-align: center;
+            color: var(--primary-color);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 10px rgba(0,119,182,0.2);
+        }
+
+        .flight-log-list {
+            list-style-type: none;
+        }
+
+        .flight-log-item {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--secondary-color);
+            margin-bottom: 1rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0,119,182,0.1);
+            border-radius: 8px;
+        }
+
+        .flight-log-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg, 
+                transparent, 
+                rgba(0,180,216,0.05), 
+                transparent
+            );
+            transform: skewX(-45deg);
+            animation: subtle-glitch 5s infinite alternate;
+        }
+
+        @keyframes subtle-glitch {
+            0% { transform: skewX(-45deg) translateX(-100%); }
+            100% { transform: skewX(-45deg) translateX(100%); }
+        }
+
+        .flight-log-link {
+            display: block;
+            padding: 1rem;
+            color: var(--text-color);
+            text-decoration: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .flight-log-item:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 15px rgba(0,119,182,0.2);
+        }
+
+        .flight-log-link .flight-date {
+            font-weight: 600;
+            color: var(--primary-color);
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        .flight-log-link .flight-details {
+            color: var(--secondary-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 600px) {
+            .header {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .header-nav {
+                margin-top: 1rem;
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .flight-log-link {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .flight-log-link .flight-details {
+                margin-top: 0.5rem;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Dronenex.us Alpha Test: Select a KML File to View:</h1>
-    <ul id="kml-list" class="kml-list">
-        <li>Loading...</li> /* in case it needs to load (I expect it to be instant) */
-    </ul>
+    <!-- Header -->
+    <header class="header">
+                    <div class="header-logo">
+            <img src="/api/placeholder/50/50" alt="Dronenex Logo">
+            Dronenex.us
+        </div>
+        <nav class="header-nav">
+            <a href="#">Logbook</a>
+            <a href="#">About</a>
+            <a href="#">Safety</a>
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1 class="page-title">Flight Log Registry</h1>
+        <ul id="flight-log-list" class="flight-log-list">
+            <li class="flight-log-item">
+                <div class="flight-log-link">
+                    <span class="flight-date">Retrieving Logs</span>
+                    <span class="flight-details">Scanning Archives...</span>
+                </div>
+            </li>
+        </ul>
+    </div>
 
     <script>
         // Fetch list of KML files
-        fetch('/list_kml') //Sends request to server for list of KML files
-            .then(response => response.json()) //Converts response to json
+        fetch('/list_kml')
+            .then(response => response.json())
             .then(files => {
-                const list = document.getElementById('kml-list');
-                list.innerHTML = ''; // Clear "Loading..."
-				
-				//Populates list with links to KML files
+                const list = document.getElementById('flight-log-list');
+                list.innerHTML = ''; // Clear loading message
+                
+                // Sort files by name in reverse (to show newest first)
+                files.sort().reverse();
+                
                 if (files.length === 0) {
-                    list.innerHTML = '<li>No KML files found.</li>';
+                    list.innerHTML = `
+                        <li class="flight-log-item">
+                            <div class="flight-log-link">
+                                <span class="flight-date">No Logs Found</span>
+                                <span class="flight-details">Archive is currently empty</span>
+                            </div>
+                        </li>
+                    `;
                 } else {
                     files.forEach(file => {
                         const li = document.createElement('li');
+                        li.className = 'flight-log-item';
+                        
                         const a = document.createElement('a');
-						//creates a link which will pass the selected KML file via URL query to the map.html
                         a.href = `map.html?kml=${file}`;
-                        a.textContent = file;
+                        a.className = 'flight-log-link';
+                        
+                        const { formattedDate, flightDetails } = formatTimestamp(file);
+                        
+                        a.innerHTML = `
+                            <span class="flight-date">${formattedDate}</span>
+                            <span class="flight-details">${flightDetails}</span>
+                        `;
+                        
                         li.appendChild(a);
                         list.appendChild(li);
                     });
                 }
             })
-			// In case there is an error
             .catch(error => {
                 console.error('Error fetching KML files:', error);
-                document.getElementById('kml-list').innerHTML = '<li>Error loading files.</li>';
+                const list = document.getElementById('flight-log-list');
+                list.innerHTML = `
+                    <li class="flight-log-item">
+                        <div class="flight-log-link">
+                            <span class="flight-date">Archive Error</span>
+                            <span class="flight-details">Unable to retrieve logs</span>
+                        </div>
+                    </li>
+                `;
             });
+
+        // Function to convert filename timestamp to readable format
+        function formatTimestamp(filename) {
+            // Extract the timestamp pattern from filename
+            const match = filename.match(/(\d{8})_(\d{6})\.kml/);
+            
+            if (!match) return { 
+                formattedDate: filename, 
+                flightDetails: 'Unclassified Mission' 
+            };
+            
+            const dateStr = match[1];
+            const timeStr = match[2];
+            
+            // Parse date components
+            const year = dateStr.substring(0, 4);
+            const month = dateStr.substring(4, 6);
+            const day = dateStr.substring(6, 8);
+            
+            // Parse time components
+            const hour = timeStr.substring(0, 2);
+            const minute = timeStr.substring(2, 4);
+            
+            // Format the date
+            const months = [
+                'January', 'February', 'March', 'April', 'May', 'June', 
+                'July', 'August', 'September', 'October', 'November', 'December'
+            ];
+            const monthName = months[parseInt(month) - 1];
+            
+            // Create 12-hour format time with AM/PM
+            let hour12 = parseInt(hour);
+            const ampm = hour12 >= 12 ? 'PM' : 'AM';
+            hour12 = hour12 % 12;
+            hour12 = hour12 ? hour12 : 12; // Convert 0 to 12
+            
+            return {
+                formattedDate: `${monthName} ${parseInt(day)}, ${year}`,
+                flightDetails: `Mission Time: ${hour12}:${minute} ${ampm}`
+            };
+        }
     </script>
 </body>
 </html>
