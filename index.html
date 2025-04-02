@@ -206,6 +206,23 @@
 
         .flight-log-link .flight-details {
             color: var(--secondary-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .video-indicator {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #e74c3c;
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: bold;
+            margin-left: 8px;
         }
 
         /* Responsive Design */
@@ -235,7 +252,7 @@
 <body>
     <!-- Header -->
     <header class="header">
-                    <div class="header-logo">
+        <div class="header-logo">
             <img src="/api/placeholder/50/50" alt="Dronenex Logo">
             Dronenex.us
         </div>
@@ -260,15 +277,12 @@
     </div>
 
     <script>
-        // Fetch list of KML files
+        // Fetch list of KML files with video info
         fetch('/list_kml')
             .then(response => response.json())
             .then(files => {
                 const list = document.getElementById('flight-log-list');
                 list.innerHTML = ''; // Clear loading message
-                
-                // Sort files by name in reverse (to show newest first)
-                files.sort().reverse();
                 
                 if (files.length === 0) {
                     list.innerHTML = `
@@ -285,14 +299,22 @@
                         li.className = 'flight-log-item';
                         
                         const a = document.createElement('a');
-                        a.href = `map.html?kml=${file}`;
+                        a.href = `map.html?kml=${file.path}`;
                         a.className = 'flight-log-link';
                         
-                        const { formattedDate, flightDetails } = formatTimestamp(file);
+                        const { formattedDate, flightDetails } = formatTimestamp(file.filename);
+                        
+                        // Create HTML for the flight entry, including video indicator if available
+                        let detailsHtml = `<span>${flightDetails}</span>`;
+                        
+                        // Add video indicator if this flight has a video
+                        if (file.hasVideo) {
+                            detailsHtml += `<div class="video-indicator" title="Video available">REC</div>`;
+                        }
                         
                         a.innerHTML = `
                             <span class="flight-date">${formattedDate}</span>
-                            <span class="flight-details">${flightDetails}</span>
+                            <span class="flight-details">${detailsHtml}</span>
                         `;
                         
                         li.appendChild(a);
@@ -350,7 +372,7 @@
             
             return {
                 formattedDate: `${monthName} ${parseInt(day)}, ${year}`,
-                flightDetails: `Mission Time: ${hour12}:${minute} ${ampm}`
+                flightDetails: `Flight Time: ${hour12}:${minute} ${ampm}`
             };
         }
     </script>
