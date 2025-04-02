@@ -6,50 +6,65 @@
     <title>KML Viewer</title>
     <link rel="stylesheet" href="leaflet/leaflet.css" />
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-        }
-        #map {
-            height: 100vh;
-            width: 100%;
-        }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
         .back-button {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            z-index: 1000;
-            background-color: white;
-            padding: 8px 12px;
-            border-radius: 4px;
-            text-decoration: none;
-            color: #333;
+            position: absolute; top: 10px; left: 10px; z-index: 1000;
+            background-color: white; padding: 8px 12px; border-radius: 4px;
+            text-decoration: none; color: #333;
             box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-            font-family: Arial, sans-serif;
         }
         .loading {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-            background: rgba(255,255,255,0.8);
-            padding: 20px;
-            border-radius: 5px;
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 1000;
+            background: rgba(255,255,255,0.8); padding: 20px; border-radius: 5px;
             box-shadow: 0 0 10px rgba(0,0,0,0.2);
         }
         #info-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background-color: white;
-            padding: 10px;
-            border-radius: 4px;
-            box-shadow: 0 1px 5px rgba(0,0,0,0.4);
-            font-family: Arial, sans-serif;
-            max-width: 250px;
+            position: absolute; top: 10px; right: 10px; z-index: 1000;
+            background-color: white; padding: 10px; border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4); max-width: 250px;
         }
+        #video-panel {
+            position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background-color: white; border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4); max-width: 360px;
+            display: none; overflow: hidden;
+        }
+        .video-panel-header {
+            padding: 10px; background-color: #f0f0f0; cursor: pointer;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #ddd;
+        }
+        .video-panel-header h3 { margin: 0; }
+        .collapse-icon {
+            font-size: 18px; transition: transform 0.3s ease;
+        }
+        .collapsed .collapse-icon { transform: rotate(180deg); }
+        .video-panel-content {
+            padding: 10px; max-height: 500px;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            overflow: hidden;
+        }
+        .collapsed .video-panel-content {
+            max-height: 0; padding: 0 10px;
+        }
+        #video-player {
+            width: 100%; max-width: 340px; border-radius: 4px; overflow: hidden;
+        }
+        #video-info { font-size: 12px; margin-top: 5px; line-height: 1.4; }
+        #no-video-message {
+            display: none; position: absolute; bottom: 20px; right: 20px; z-index: 1000;
+            background-color: white; padding: 10px; border-radius: 4px;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.4); max-width: 200px;
+        }
+        .leaflet-control-zoom { margin-top: 50px !important; }
+        .download-button {
+            display: inline-block; background-color: #4caf50; color: white;
+            padding: 8px 12px; text-align: center; text-decoration: none;
+            border-radius: 4px; font-size: 14px; margin-top: 5px;
+            transition: background-color 0.3s;
+        }
+        .download-button:hover { background-color: #45a049; }
     </style>
 </head>
 <body>
@@ -62,6 +77,29 @@
         <div id="flight-info">Loading...</div>
     </div>
     
+    <!-- Video Panel with Collapsible Header -->
+    <div id="video-panel">
+        <div class="video-panel-header" id="video-panel-header">
+            <h3>Flight Video</h3>
+            <span class="collapse-icon">▲</span>
+        </div>
+        <div class="video-panel-content" id="video-panel-content">
+            <video id="video-player" controls>
+                <source src="" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+            <div id="video-info"></div>
+            <div style="margin-top: 10px; text-align: center;">
+                <a id="video-download" href="#" download class="download-button">Download Video</a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- No Video Message -->
+    <div id="no-video-message">
+        No matching video found for this flight
+    </div>
+    
     <!-- Loading indicator -->
     <div id="loading" class="loading">Loading flight data...</div>
     
@@ -70,14 +108,27 @@
     
     <script src="leaflet/leaflet.js"></script>
     <script>
-        // Initialize map
-        const map = L.map('map').setView([0, 0], 2);
+        // Initialize map with custom zoom control positioning
+        const map = L.map('map', {
+            zoomControl: false
+        }).setView([0, 0], 2);
+        
+        // Add zoom control in a position that doesn't overlap with back button
+        L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
         
         // Add OpenStreetMap tiles
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
+        
+        // Setup video panel collapse functionality
+        document.getElementById('video-panel-header').addEventListener('click', function() {
+            const panel = document.getElementById('video-panel');
+            panel.classList.toggle('collapsed');
+        });
         
         // Define custom icons
         const droneIcon = L.icon({
@@ -92,7 +143,6 @@
             iconAnchor: [12, 12]
         });
         
-        // Use drone icon for takeoff and home icon for landing
         const takeoffIcon = L.icon({
             iconUrl: 'icons/drone-icon.png',
             iconSize: [24, 24],
@@ -121,54 +171,96 @@
             return R * c; // in meters
         }
         
-        // Add flight information to panel
+        // Check for matching video
+        function checkForMatchingVideo(flightTimestamp, flightDurationSeconds) {
+            console.log(`Checking for video matching flight timestamp: ${flightTimestamp}, duration: ${flightDurationSeconds}s`);
+            
+            const url = `/video_for_flight?timestamp=${encodeURIComponent(flightTimestamp)}&duration=${flightDurationSeconds}`;
+            
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Video match response:', data);
+                    
+                    if (data.hasVideo) {
+                        // Show video panel
+                        const videoPanel = document.getElementById('video-panel');
+                        const videoPlayer = document.getElementById('video-player');
+                        const videoInfo = document.getElementById('video-info');
+                        const videoDownload = document.getElementById('video-download');
+                        
+                        // Set video source
+                        videoPlayer.querySelector('source').src = data.videoPath;
+                        videoPlayer.load();
+                        
+                        // Set download link
+                        videoDownload.href = data.videoPath;
+                        
+                        // Set filename for download
+                        const filename = data.videoPath.split('/').pop();
+                        videoDownload.setAttribute('download', filename);
+                        
+                        // Add video info
+                        videoInfo.innerHTML = `
+                            <div>Resolution: ${data.resolution !== "unknown" ? data.resolution : "Unknown"}</div>
+                            <div>Framerate: ${data.framerate ? `${Math.round(data.framerate)}fps` : "Unknown"}</div>
+                        `;
+                        
+                        // Show the panel and ensure it's not collapsed by default
+                        videoPanel.style.display = 'block';
+                        videoPanel.classList.remove('collapsed');
+                        document.getElementById('no-video-message').style.display = 'none';
+                    } else {
+                        // Show no video message
+                        document.getElementById('video-panel').style.display = 'none';
+                        document.getElementById('no-video-message').style.display = 'block';
+                        
+                        // Hide the message after 5 seconds
+                        setTimeout(() => {
+                            document.getElementById('no-video-message').style.display = 'none';
+                        }, 5000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking for matching video:', error);
+                    document.getElementById('video-panel').style.display = 'none';
+                });
+        }
+        
+        // Add flight information to panel with unit conversions
         function updateInfoPanel(dronePositions, flightDistance, folderDescription) {
             if (dronePositions.length === 0) {
                 document.getElementById('flight-info').innerHTML = 'No flight data available';
                 return;
             }
             
-            console.log(`Number of drone positions: ${dronePositions.length}`);
-            console.log("Raw folder description for processing:", folderDescription);
-            
             // Calculate flight duration
             const startTime = dronePositions[0].timestamp;
             const endTime = dronePositions[dronePositions.length - 1].timestamp;
             let duration = 'Unknown';
-            
-            console.log(`Raw timestamps: ${startTime} and ${endTime}`);
+            let durationSeconds = 0;
             
             if (startTime && endTime) {
-                // Try with explicit timezone handling
                 const startDate = new Date(startTime);
                 const endDate = new Date(endTime);
-                
-                console.log(`Start date: ${startDate.toISOString()}`);
-                console.log(`End date: ${endDate.toISOString()}`);
-                
-                // Calculate duration with more robust checks
                 const durationMs = endDate.getTime() - startDate.getTime();
-                console.log(`Duration calculation: ${durationMs}ms`);
                 
                 if (durationMs > 0) {
-                    const minutes = Math.floor(durationMs / 60000);
-                    const seconds = Math.floor((durationMs % 60000) / 1000);
+                    durationSeconds = Math.round(durationMs / 1000);
+                    const minutes = Math.floor(durationSeconds / 60);
+                    const seconds = Math.floor(durationSeconds % 60);
                     duration = `${minutes}m ${seconds}s`;
-                } else {
-                    console.warn("Invalid duration calculation - timestamps may be incorrect or in wrong format");
-                    // Use distance-based estimation as fallback
-                    if (flightDistance > 0) {
-                        const estimatedDurationSeconds = Math.round(flightDistance / 5);
-                        const minutes = Math.floor(estimatedDurationSeconds / 60);
-                        const seconds = estimatedDurationSeconds % 60;
-                        duration = `${minutes}m ${seconds}s (est)`;
-                    }
+                } else if (flightDistance > 0) {
+                    durationSeconds = Math.round(flightDistance / 5);
+                    const minutes = Math.floor(durationSeconds / 60);
+                    const seconds = Math.floor(durationSeconds % 60);
+                    duration = `${minutes}m ${seconds}s (est)`;
                 }
             } else if (flightDistance > 0) {
-                // No timestamps at all, still estimate based on distance
-                const estimatedDurationSeconds = Math.round(flightDistance / 5);
-                const minutes = Math.floor(estimatedDurationSeconds / 60);
-                const seconds = estimatedDurationSeconds % 60;
+                // No timestamps at all, estimate based on distance
+                durationSeconds = Math.round(flightDistance / 5);
+                const minutes = Math.floor(durationSeconds / 60);
+                const seconds = Math.floor(durationSeconds % 60);
                 duration = `${minutes}m ${seconds}s (est)`;
             }
             
@@ -179,21 +271,18 @@
                 const date = new Date(startTime);
                 timeFormatted = date.toLocaleTimeString();
                 dateFormatted = date.toLocaleDateString();
+                
+                // Check for matching video
+                checkForMatchingVideo(date.toISOString(), durationSeconds);
             }
             
-            // Format distance in feet (instead of meters)
+            // Format distance
             let distanceText = 'Unknown';
             if (flightDistance) {
-                // Convert meters to feet (1 meter = 3.28084 feet)
                 const distanceInFeet = flightDistance * 3.28084;
-                
-                if (distanceInFeet >= 5280) {
-                    // If more than a mile, show in miles
-                    distanceText = `${(distanceInFeet/5280).toFixed(2)} mi`;
-                } else {
-                    // Otherwise show in feet
-                    distanceText = `${Math.round(distanceInFeet)} ft`;
-                }
+                distanceText = distanceInFeet >= 5280 
+                    ? `${(distanceInFeet/5280).toFixed(2)} mi` 
+                    : `${Math.round(distanceInFeet)} ft`;
             }
             
             // Extract max altitude and max speed from folder description
@@ -201,59 +290,48 @@
             let maxSpeed = 'Unknown';
             
             if (folderDescription) {
-                console.log("Raw description text:", folderDescription);
-                
-                // First try basic regex on the raw description
+                // Try to extract altitude
                 const altMatch = folderDescription.match(/Max altitude: ([0-9.]+) (\w+)/i);
                 if (altMatch && altMatch.length >= 3) {
-                    maxAltitude = `${altMatch[1]} ${altMatch[2]}`;
-                    console.log("Extracted max altitude:", maxAltitude);
+                    maxAltitude = altMatch[2].toLowerCase() === 'm' 
+                        ? `${Math.round(parseFloat(altMatch[1]) * 3.28084)} ft`
+                        : `${altMatch[1]} ${altMatch[2]}`;
                 } else {
-                    // Try splitting by <br> tags which might be in the description
+                    // Try splitting by <br> tags and search in each line
                     const lines = folderDescription.split(/<br\s*\/?>/i);
-                    console.log("Split description lines:", lines);
-                    
-                    // Look for altitude in each line
                     for (const line of lines) {
                         const lineAltMatch = line.match(/Max altitude: ([0-9.]+) (\w+)/i);
                         if (lineAltMatch && lineAltMatch.length >= 3) {
-                            maxAltitude = `${lineAltMatch[1]} ${lineAltMatch[2]}`;
-                            console.log("Extracted max altitude from line:", maxAltitude);
+                            maxAltitude = lineAltMatch[2].toLowerCase() === 'm'
+                                ? `${Math.round(parseFloat(lineAltMatch[1]) * 3.28084)} ft`
+                                : `${lineAltMatch[1]} ${lineAltMatch[2]}`;
                             break;
                         }
                     }
                 }
                 
-                // Do the same for speed
-                const speedMatch = folderDescription.match(/Max speed: ([0-9.]+) (\w+)/i);
+                // Try to extract speed
+                const speedMatch = folderDescription.match(/Max speed: ([0-9.]+) (\w+\/\w+|\w+)/i);
                 if (speedMatch && speedMatch.length >= 3) {
-                    maxSpeed = `${speedMatch[1]} ${speedMatch[2]}`;
-                    console.log("Extracted max speed:", maxSpeed);
+                    maxSpeed = speedMatch[2].toLowerCase() === 'm/s'
+                        ? `${(parseFloat(speedMatch[1]) * 2.23694).toFixed(1)} mph`
+                        : `${speedMatch[1]} ${speedMatch[2]}`;
                 } else {
                     // Try splitting by <br> tags
                     const lines = folderDescription.split(/<br\s*\/?>/i);
-                    
-                    // Look for speed in each line
                     for (const line of lines) {
-                        const lineSpeedMatch = line.match(/Max speed: ([0-9.]+) (\w+)/i);
+                        const lineSpeedMatch = line.match(/Max speed: ([0-9.]+) (\w+\/\w+|\w+)/i);
                         if (lineSpeedMatch && lineSpeedMatch.length >= 3) {
-                            maxSpeed = `${lineSpeedMatch[1]} ${lineSpeedMatch[2]}`;
-                            console.log("Extracted max speed from line:", maxSpeed);
+                            maxSpeed = lineSpeedMatch[2].toLowerCase() === 'm/s'
+                                ? `${(parseFloat(lineSpeedMatch[1]) * 2.23694).toFixed(1)} mph`
+                                : `${lineSpeedMatch[1]} ${lineSpeedMatch[2]}`;
                             break;
                         }
                     }
                 }
-                
-                // If still not found, log failure
-                if (maxAltitude === 'Unknown') {
-                    console.warn("Failed to extract max altitude from description");
-                }
-                if (maxSpeed === 'Unknown') {
-                    console.warn("Failed to extract max speed from description");
-                }
             }
             
-            // Create the info HTML with time, duration, distance, max altitude and max speed
+            // Create the info HTML
             const infoHtml = `
                 <div style="font-size: 14px; line-height: 1.5;">
                     <div><strong>Date:</strong> ${dateFormatted}</div>
@@ -273,67 +351,30 @@
             const parser = new DOMParser();
             const kml = parser.parseFromString(kmlText, 'text/xml');
             
-            console.log("Parsing KML file...");
-            
-            // Check for TimeStamp elements
-            const allTimeStamps = kml.getElementsByTagName('TimeStamp');
-            console.log(`Found ${allTimeStamps.length} TimeStamp elements in KML`);
-            
-            // Log a few timestamps for debugging
-            for (let i = 0; i < Math.min(allTimeStamps.length, 5); i++) {
-                const when = allTimeStamps[i].getElementsByTagName('when')[0]?.textContent;
-                console.log(`TimeStamp ${i}: ${when}`);
-                if (when) {
-                    try {
-                        // Try to parse as date
-                        const parsedTime = new Date(when).getTime();
-                        console.log(`  Parsed as: ${parsedTime} (${new Date(parsedTime).toISOString()})`);
-                    } catch (e) {
-                        console.error(`  Error parsing: ${e.message}`);
-                    }
-                }
-            }
-            
             // Extract folder description for stats
             let folderDescription = '';
             const folders = kml.getElementsByTagName('Folder');
             if (folders.length > 0) {
-                console.log(`Found ${folders.length} folders in KML`);
                 const descElement = folders[0].getElementsByTagName('description')[0];
                 if (descElement) {
-                    // For debugging: Log the raw content
-                    console.log("Raw description element innerHTML:", descElement.innerHTML);
-                    console.log("Raw description element textContent:", descElement.textContent);
-                    
-                    // Try both innerHTML and textContent
                     folderDescription = descElement.textContent || descElement.innerHTML;
                     
-                    // Try to extract actual content from CDATA or comment
+                    // Extract from CDATA if present
                     if (folderDescription.includes('CDATA')) {
-                        // This handles CDATA in the format: <!--><![CDATA[actual content]]><!--
                         const cdataMatch = folderDescription.match(/<!--\s*--><!\[CDATA\[(.*)\]\]><!--\s*-->/s);
                         if (cdataMatch && cdataMatch[1]) {
                             folderDescription = cdataMatch[1];
-                            console.log("Extracted from CDATA:", folderDescription);
                         }
                     }
                     
-                    // Additional attempt to extract from comments if needed
+                    // Extract from comments if needed
                     if (folderDescription.includes('<!--')) {
-                        // This handles the format: <!-- content -->
                         const commentMatch = folderDescription.match(/<!--(.*?)-->/s);
                         if (commentMatch && commentMatch[1]) {
                             folderDescription = commentMatch[1].trim();
-                            console.log("Extracted from comment:", folderDescription);
                         }
                     }
-                    
-                    console.log("Final extracted folder description:", folderDescription);
-                } else {
-                    console.log("No description element found in the folder");
                 }
-            } else {
-                console.log("No folder elements found in KML");
             }
             
             const placemarks = kml.getElementsByTagName('Placemark');
@@ -362,14 +403,8 @@
                     if (timeStamp) {
                         const when = timeStamp.getElementsByTagName('when')[0]?.textContent;
                         if (when) {
-                            // Try to parse the timestamp correctly
                             try {
-                                // Make sure we're parsing a string, not a Date object
                                 timestamp = new Date(when.toString()).getTime();
-                                // Only log for drone positions to keep console cleaner
-                                if (styleUrl.includes('droneStyle')) {
-                                    console.log(`Parsed timestamp: ${when} -> ${timestamp}`);
-                                }
                             } catch (e) {
                                 console.error(`Error parsing timestamp ${when}:`, e);
                             }
@@ -384,37 +419,6 @@
                     } else if (styleUrl.includes('homeStyle')) {
                         homePositions.push({lat, lon, alt, timestamp});
                     }
-                }
-            }
-            
-            console.log(`Found drone positions: ${dronePositions.length}`);
-            console.log(`Found controller positions: ${controllerPositions.length}`);
-            console.log(`Found home positions: ${homePositions.length}`);
-            
-            // Debug the timestamps more specifically
-            if (dronePositions.length >= 2) {
-                console.log("Timestamp debugging:");
-                
-                // Look at the first and last drone positions
-                const firstDrone = dronePositions[0];
-                const lastDrone = dronePositions[dronePositions.length - 1];
-                
-                console.log("First drone position timestamp:", firstDrone.timestamp);
-                console.log("Last drone position timestamp:", lastDrone.timestamp);
-                
-                if (firstDrone.timestamp && lastDrone.timestamp) {
-                    console.log(`Parsed timestamps: ${firstDrone.timestamp} to ${lastDrone.timestamp}`);
-                    console.log(`Difference: ${lastDrone.timestamp - firstDrone.timestamp}ms`);
-                    
-                    // Check if timestamps are numeric
-                    console.log(`First timestamp is number: ${typeof firstDrone.timestamp === 'number'}`);
-                    console.log(`Last timestamp is number: ${typeof lastDrone.timestamp === 'number'}`);
-                    
-                    // Try alternative parsing
-                    const firstDate = new Date(firstDrone.timestamp);
-                    const lastDate = new Date(lastDrone.timestamp);
-                    console.log(`First timestamp as date: ${firstDate.toISOString()}`);
-                    console.log(`Last timestamp as date: ${lastDate.toISOString()}`);
                 }
             }
             
@@ -433,8 +437,6 @@
                         return [lat, lon];
                     }).filter(point => !isNaN(point[0]) && !isNaN(point[1]));
                     
-                    console.log(`LineString has ${points.length} points`);
-                    
                     // Calculate total distance
                     if (points.length > 1) {
                         for (let i = 1; i < points.length; i++) {
@@ -452,13 +454,11 @@
                 }
             }
             
-            console.log(`Calculated flight distance: ${flightDistance} meters`);
-            
             // Update the info panel with flight data
             updateInfoPanel(dronePositions, flightDistance, folderDescription);
             
-            // Add the important markers:
-            // 1. Controller position - first controller position
+            // Add markers
+            // 1. Controller position
             if (controllerPositions.length > 0) {
                 const controller = controllerPositions[0];
                 L.marker([controller.lat, controller.lon], {
@@ -467,7 +467,7 @@
                 bounds.extend([controller.lat, controller.lon]);
             }
             
-            // 2. Takeoff position - first drone position
+            // 2. Takeoff position
             if (dronePositions.length > 0) {
                 const takeoff = dronePositions[0];
                 L.marker([takeoff.lat, takeoff.lon], {
@@ -476,7 +476,7 @@
                 bounds.extend([takeoff.lat, takeoff.lon]);
             }
             
-            // 3. Landing position - last drone position
+            // 3. Landing position
             if (dronePositions.length > 0) {
                 const landing = dronePositions[dronePositions.length - 1];
                 L.marker([landing.lat, landing.lon], {
