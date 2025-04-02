@@ -4,8 +4,8 @@
 class Common:
     def __init__(self, parent=None):
         self.parent = parent
-        self.use_metric = True    # Default to metric units
-        
+        self.use_metric = True  # Default to metric units
+
     def dist_val(self, num):
         """Return specified distance in the proper Unit (metric vs imperial)."""
         if num is None:
@@ -34,11 +34,13 @@ class Common:
         return f"{num:.0f}" if not decimal else f"{num:.2f}"
 
     def speed_val(self, num):
-        """Return specified speed in the proper Unit (metric vs imperial)."""
+        """Return specified speed in the proper Unit (metric vs imperial).
+        For metric, keep it in m/s (no conversion).
+        For imperial, convert to mph."""
         if num is None:
             return None
-        return num * 2.236936 if not self.use_metric else num * 3.6
+        return num * 2.236936 if not self.use_metric else num  # Keep as m/s for metric
 
     def speed_unit(self):
         """Return selected speed unit of measure."""
-        return "mph" if not self.use_metric else "kph"
+        return "mph" if not self.use_metric else "m/s"  # Changed from "kph" to "m/s"
