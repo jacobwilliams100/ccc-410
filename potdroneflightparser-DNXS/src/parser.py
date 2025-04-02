@@ -386,4 +386,3 @@ class DreamerBaseLogParser():
     def parse(self, importRef):
         # TODO - port over from app version 1.4.2
         print("Not yet implemented.")
-
